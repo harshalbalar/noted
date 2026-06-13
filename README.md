@@ -82,24 +82,6 @@ python main.py
 
 Open [http://localhost:8000](http://localhost:8000) in Chrome or Edge.
 
-## Deploy your own
-
-### Render (free)
-
-1. Fork this repo
-2. Go to [render.com](https://render.com) → New → Web Service → connect your fork
-3. Set build command: `pip install -r requirements.txt`
-4. Set start command: `uvicorn main:app --host 0.0.0.0 --port $PORT`
-5. Add `GROQ_API_KEY` and `GEMINI_API_KEY` as environment variables
-6. Select the free tier and deploy
-
-### Railway
-
-1. Fork this repo
-2. Go to [railway.app](https://railway.app) → New Project → Deploy from GitHub
-3. Add environment variables and deploy
-4. Railway auto-detects the `Procfile`
-
 ## Tech stack
 
 | Layer | Technology |
@@ -108,7 +90,6 @@ Open [http://localhost:8000](http://localhost:8000) in Chrome or Edge.
 | Frontend | Vanilla HTML/CSS/JS, Web Audio API |
 | Transcription | Groq Whisper Large V3 Turbo |
 | Summarization | Google Gemini 2.5 Flash |
-| Deployment | Render / Railway |
 
 ## Browser support
 
@@ -130,7 +111,6 @@ noted/
 │   └── index.html       # Frontend (HTML + CSS + JS, single file)
 ├── static/              # Static assets directory
 ├── requirements.txt     # Python dependencies
-├── Procfile             # Process definition for deployment
 ├── .env.example         # Environment variable template
 └── .gitignore
 ```
