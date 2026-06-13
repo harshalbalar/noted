@@ -61,6 +61,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Meeting Transcriber", lifespan=lifespan)
 
 BASE_DIR = Path(__file__).parent
+(BASE_DIR / "static").mkdir(exist_ok=True)
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
 
