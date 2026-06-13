@@ -70,11 +70,14 @@ templates = Jinja2Templates(directory=BASE_DIR / "templates")
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    return templates.TemplateResponse("index.html", {
-        "request": request,
+    return templates.TemplateResponse(
+    request=request,
+    name="index.html",
+    context={
         "has_groq_key": bool(GROQ_API_KEY),
         "has_gemini_key": bool(GEMINI_API_KEY),
-    })
+    }
+)
 
 
 @app.websocket("/ws/transcribe")
