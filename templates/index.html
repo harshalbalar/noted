@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Noted — Live Meeting Intelligence</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+    :root {
+      --bg: #08080d;
+      --bg-subtle: #0e0e16;
+      --surface: #13131d;
+      --surface-hover: #1a1a28;
+      --border: rgba(255,255,255,0.06);
+      --border-light: rgba(255,255,255,0.1);
+      --text: #e4e4ed;
+      --text-muted: #6e6e82;
+      --text-dim: #4a4a5e;
+      --accent-1: #6366f1;
+      --accent-2: #8b5cf6;
+      --accent-3: #a78bfa;
+      --red: #ef4444;
+      --red-glow: rgba(239,68,68,0.15);
+      --green: #22c55e;
+      --radius: 12px;
+      --radius-sm: 8px;
+    }
+
+    * { margin:0; padding:0; box-sizing:border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Ambient background ── */
+    .ambient {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      overflow: hidden; opacity: 0.4;
+    }
+    .ambient-orb {
+      position: absolute; border-radius: 50%; filter: blur(120px);
+      animation: drift 20s ease-in-out infinite alternate;
+    }
+    .ambient-orb:nth-child(1) {
+      width: 600px; height: 600px; top: -200px; left: -100px;
+      background: radial-gradient(circle, rgba(99,102,241,0.15), transparent 70%);
+    }
+    .ambient-orb:nth-child(2) {
+      width: 500px; height: 500px; bottom: -150px; right: -100px;
+      background: radial-gradient(circle, rgba(139,92,246,0.12), transparent 70%);
+      animation-delay: -10s;
+    }
+    .ambient-orb:nth-child(3) {
+      width: 400px; height: 400px; top: 40%; left: 50%;
+      background: radial-gradient(circle, rgba(167,139,250,0.08), transparent 70%);
+      animation-delay: -5s;
+    }
+    @keyframes drift {
+      0% { transform: translate(0, 0) scale(1); }
+      50% { transform: translate(30px, -20px) scale(1.05); }
+      100% { transform: translate(-20px, 30px) scale(0.95); }
+    }
+
+    /* ── Header ── */
+    header {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(8,8,13,0.8);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border-bottom: 1px solid var(--border);
+      padding: 0 32px;
+      height: 60px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+
+    .logo {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .logo-icon {
+      width: 32px; height: 32px;
+      background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 0 20px rgba(99,102,241,0.3);
+    }
+    .logo-icon svg { width: 18px; height: 18px; }
+    .logo-text {
+      font-size: 20px; font-weight: 700; letter-spacing: -0.03em;
+      background: linear-gradient(135deg, var(--text), var(--accent-3));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .logo-tag {
+      font-size: 11px; font-weight: 500; color: var(--text-muted);
+      background: var(--surface);
+      padding: 2px 8px; border-radius: 4px;
+      border: 1px solid var(--border);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .header-actions { display: flex; gap: 8px; }
+
+    .icon-btn {
+      width: 36px; height: 36px;
+      display: flex; align-items: center; justify-content: center;
+      background: transparent; border: 1px solid var(--border);
+      border-radius: var(--radius-sm); cursor: pointer;
+      color: var(--text-muted);
+      transition: all 0.2s ease;
+    }
+    .icon-btn:hover {
+      background: var(--surface); border-color: var(--border-light);
+      color: var(--text);
+    }
+    .icon-btn svg { width: 16px; height: 16px; }
+
+    /* ── Settings panel ── */
+    .settings-panel {
+      max-height: 0; overflow: hidden;
+      background: var(--bg-subtle);
+      border-bottom: 1px solid transparent;
+      transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s;
+    }
+    .settings-panel.open {
+      max-height: 120px;
+      border-bottom-color: var(--border);
+    }
+    .settings-inner {
+      padding: 16px 32px;
+      display: flex; gap: 24px; align-items: center; flex-wrap: wrap;
+    }
+    .key-pill {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 13px; font-weight: 500;
+      padding: 6px 14px; border-radius: 20px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+    }
+    .key-pill .dot {
+      width: 6px; height: 6px; border-radius: 50%;
+    }
+    .key-pill .dot.on { background: var(--green); box-shadow: 0 0 8px rgba(34,197,94,0.4); }
+    .key-pill .dot.off { background: var(--red); box-shadow: 0 0 8px rgba(239,68,68,0.3); }
+    .key-pill a { color: var(--accent-3); text-decoration: none; }
+    .key-pill a:hover { text-decoration: underline; }
+
+    /* ── Main ── */
+    main {
+      position: relative; z-index: 1;
+      max-width: 1000px; margin: 0 auto;
+      padding: 28px 32px;
+    }
+
+    /* ── Controls ── */
+    .controls {
+      display: flex; gap: 12px; align-items: center;
+      margin-bottom: 24px; flex-wrap: wrap;
+    }
+
+    .source-select {
+      padding: 10px 16px; font-size: 13px; font-weight: 500;
+      font-family: 'Inter', sans-serif;
+      background: var(--surface); color: var(--text);
+      border: 1px solid var(--border); border-radius: var(--radius-sm);
+      cursor: pointer; outline: none;
+      transition: border-color 0.2s;
+    }
+    .source-select:hover { border-color: var(--border-light); }
+    .source-select:focus { border-color: var(--accent-1); }
+    .source-select option { background: var(--surface); }
+
+    .btn-record {
+      position: relative; overflow: hidden;
+      padding: 10px 24px;
+      font-family: 'Inter', sans-serif;
+      font-size: 14px; font-weight: 600;
+      color: white; border: none;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
+      box-shadow: 0 4px 15px rgba(99,102,241,0.25);
+      transition: all 0.3s ease;
+    }
+    .btn-record:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 25px rgba(99,102,241,0.35);
+    }
+    .btn-record:active { transform: translateY(0); }
+    .btn-record.recording {
+      background: linear-gradient(135deg, var(--red), #dc2626);
+      box-shadow: 0 4px 20px var(--red-glow), 0 0 40px var(--red-glow);
+      animation: record-pulse 2s ease-in-out infinite;
+    }
+    @keyframes record-pulse {
+      0%,100% { box-shadow: 0 4px 20px var(--red-glow), 0 0 40px var(--red-glow); }
+      50% { box-shadow: 0 4px 30px rgba(239,68,68,0.3), 0 0 60px rgba(239,68,68,0.2); }
+    }
+    /* Shimmer on hover */
+    .btn-record::after {
+      content: ''; position: absolute; top: -50%; left: -50%;
+      width: 200%; height: 200%;
+      background: linear-gradient(transparent, rgba(255,255,255,0.05), transparent);
+      transform: rotate(30deg); transition: 0.5s;
+      opacity: 0;
+    }
+    .btn-record:hover::after { opacity: 1; }
+
+    .btn {
+      padding: 10px 18px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px; font-weight: 500;
+      border: 1px solid var(--border); border-radius: var(--radius-sm);
+      background: var(--surface); color: var(--text-muted);
+      cursor: pointer; transition: all 0.2s ease;
+    }
+    .btn:hover:not(:disabled) {
+      background: var(--surface-hover); color: var(--text);
+      border-color: var(--border-light);
+    }
+    .btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    .btn-generate {
+      background: linear-gradient(135deg, rgba(34,197,94,0.12), rgba(34,197,94,0.06));
+      border-color: rgba(34,197,94,0.2); color: var(--green);
+    }
+    .btn-generate:hover:not(:disabled) {
+      background: linear-gradient(135deg, rgba(34,197,94,0.2), rgba(34,197,94,0.1));
+      border-color: rgba(34,197,94,0.3);
+    }
+
+    .status-bar {
+      margin-left: auto;
+      display: flex; align-items: center; gap: 8px;
+      font-size: 13px; color: var(--text-dim);
+      font-weight: 500;
+    }
+    .status-bar.live { color: var(--red); }
+    .status-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--text-dim);
+      transition: all 0.3s;
+    }
+    .status-bar.live .status-dot {
+      background: var(--red);
+      box-shadow: 0 0 10px rgba(239,68,68,0.5);
+      animation: blink 1.2s ease-in-out infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    /* ── Waveform visualizer ── */
+    .waveform-wrap {
+      height: 0; overflow: hidden;
+      transition: height 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      margin-bottom: 0;
+    }
+    .waveform-wrap.active {
+      height: 72px;
+      margin-bottom: 20px;
+    }
+    .waveform-container {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 16px;
+      height: 72px;
+    }
+    #waveformCanvas {
+      width: 100%; height: 100%;
+      display: block;
+    }
+
+    /* ── Transcript ── */
+    .transcript-container {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      min-height: 320px; max-height: 52vh;
+      overflow-y: auto; padding: 8px 0;
+      margin-bottom: 20px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--surface-hover) transparent;
+    }
+    .transcript-container::-webkit-scrollbar { width: 6px; }
+    .transcript-container::-webkit-scrollbar-track { background: transparent; }
+    .transcript-container::-webkit-scrollbar-thumb { background: var(--surface-hover); border-radius: 3px; }
+
+    .transcript-empty {
+      color: var(--text-dim); text-align: center;
+      padding: 80px 32px; font-size: 14px; line-height: 2;
+    }
+    .transcript-empty .empty-icon {
+      width: 48px; height: 48px; margin: 0 auto 16px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, rgba(99,102,241,0.1), rgba(139,92,246,0.05));
+      border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .transcript-empty .empty-icon svg { width: 20px; height: 20px; color: var(--accent-3); }
+
+    .transcript-line {
+      padding: 10px 20px;
+      display: flex; gap: 16px; font-size: 14px;
+      border-bottom: 1px solid var(--border);
+      animation: lineSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+      transition: background 0.15s;
+    }
+    .transcript-line:last-child { border-bottom: none; }
+    .transcript-line:hover { background: rgba(255,255,255,0.02); }
+
+    @keyframes lineSlideIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .transcript-time {
+      color: var(--text-dim);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px; font-weight: 500;
+      min-width: 60px; padding-top: 3px; flex-shrink: 0;
+      letter-spacing: 0.02em;
+    }
+    .transcript-text {
+      flex: 1; color: var(--text);
+      font-size: 14px; line-height: 1.6;
+    }
+    .error-line {
+      color: rgba(239,68,68,0.7); font-size: 12px;
+      padding: 6px 20px;
+      font-family: 'JetBrains Mono', monospace;
+      animation: lineSlideIn 0.3s ease both;
+    }
+
+    /* ── Actions ── */
+    .actions {
+      display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 28px;
+    }
+
+    /* ── Summary ── */
+    .summary-container {
+      opacity: 0; max-height: 0; overflow: hidden;
+      transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      margin-bottom: 20px;
+    }
+    .summary-container.visible {
+      opacity: 1; max-height: 3000px;
+    }
+    .summary-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px; margin-bottom: 16px;
+      animation: cardFadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+    .summary-card:nth-child(2) { animation-delay: 0.08s; }
+    .summary-card:nth-child(3) { animation-delay: 0.16s; }
+    .summary-card:nth-child(4) { animation-delay: 0.24s; }
+
+    @keyframes cardFadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .summary-card h3 {
+      font-size: 11px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.1em;
+      color: var(--accent-3);
+      margin-bottom: 12px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .summary-card h3::before {
+      content: ''; display: block;
+      width: 3px; height: 14px; border-radius: 2px;
+      background: linear-gradient(to bottom, var(--accent-1), var(--accent-2));
+    }
+    .summary-card p { font-size: 14px; color: var(--text); line-height: 1.7; }
+    .summary-card ul { list-style: none; padding: 0; }
+    .summary-card li {
+      font-size: 14px; padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+      display: flex; gap: 10px; align-items: flex-start;
+    }
+    .summary-card li:last-child { border-bottom: none; }
+    .summary-card li::before {
+      content: ''; display: block; flex-shrink: 0;
+      width: 5px; height: 5px; border-radius: 50%;
+      background: var(--accent-2);
+      margin-top: 8px;
+    }
+
+    .script-turn {
+      padding: 8px 0; font-size: 14px; line-height: 1.6;
+      border-bottom: 1px solid var(--border);
+    }
+    .script-turn:last-child { border-bottom: none; }
+    .script-speaker {
+      font-weight: 600; color: var(--accent-3);
+      margin-right: 4px;
+    }
+
+    .spinner {
+      display: inline-block; width: 14px; height: 14px;
+      border: 2px solid var(--border);
+      border-top-color: var(--green);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle; margin-right: 8px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Responsive ── */
+    @media (max-width: 640px) {
+      header { padding: 0 16px; }
+      main { padding: 20px 16px; }
+      .settings-inner { padding: 12px 16px; }
+      .controls { gap: 8px; }
+      .btn-record { padding: 10px 16px; font-size: 13px; }
+      .btn { padding: 8px 12px; }
+      .status-bar { width: 100%; margin: 4px 0 0; }
+      .transcript-line { padding: 8px 14px; gap: 10px; }
+      .summary-card { padding: 20px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="ambient">
+  <div class="ambient-orb"></div>
+  <div class="ambient-orb"></div>
+  <div class="ambient-orb"></div>
+</div>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+        <line x1="12" y1="19" x2="12" y2="22"/>
+      </svg>
+    </div>
+    <span class="logo-text">Noted</span>
+    <span class="logo-tag">Live</span>
+  </div>
+  <div class="header-actions">
+    <button class="icon-btn" onclick="document.getElementById('settingsPanel').classList.toggle('open')" title="Settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"/><path d="M12 1v4m0 14v4M4.2 4.2l2.8 2.8m10-2.8-2.8 2.8M1 12h4m14 0h4M4.2 19.8l2.8-2.8m10 2.8-2.8-2.8"/>
+      </svg>
+    </button>
+  </div>
+</header>
+
+<div class="settings-panel" id="settingsPanel">
+  <div class="settings-inner">
+    <div class="key-pill">
+      <span class="dot {{ 'on' if has_groq_key else 'off' }}"></span>
+      <span>Transcription</span>
+      {% if not has_groq_key %}<a href="https://console.groq.com/keys" target="_blank">connect</a>{% endif %}
+    </div>
+    <div class="key-pill">
+      <span class="dot {{ 'on' if has_gemini_key else 'off' }}"></span>
+      <span>Summarization</span>
+      {% if not has_gemini_key %}<a href="https://aistudio.google.com/apikey" target="_blank">connect</a>{% endif %}
+    </div>
+  </div>
+</div>
+
+<main>
+  <div class="controls">
+    <select class="source-select" id="audioSource">
+      <option value="mic">Microphone</option>
+      <option value="tab">Tab / System Audio</option>
+    </select>
+
+    <button class="btn-record" id="recordBtn" onclick="toggleRecording()">Start Recording</button>
+    <button class="btn" id="clearBtn" onclick="clearTranscript()" disabled>Clear</button>
+
+    <div class="status-bar" id="statusBar">
+      <span class="status-dot"></span>
+      <span id="statusText">Ready</span>
+    </div>
+  </div>
+
+  <div class="waveform-wrap" id="waveformWrap">
+    <div class="waveform-container">
+      <canvas id="waveformCanvas"></canvas>
+    </div>
+  </div>
+
+  <div class="transcript-container" id="transcriptBox">
+    <div class="transcript-empty" id="emptyState">
+      <div class="empty-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+          <line x1="12" y1="19" x2="12" y2="22"/>
+        </svg>
+      </div>
+      Start recording to capture and transcribe live audio.<br>
+      Select <strong>Tab Audio</strong> for meetings in Zoom, Teams, or Meet.
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="btn btn-generate" id="summarizeBtn" onclick="generateSummary()" disabled>Generate Meeting Minutes</button>
+    <button class="btn" id="copyBtn" onclick="copyTranscript()" disabled>Copy Transcript</button>
+    <button class="btn" id="exportBtn" onclick="exportAll()" disabled>Export</button>
+  </div>
+
+  <div class="summary-container" id="summaryBox">
+    <div id="summaryContent"></div>
+  </div>
+</main>
+
+<script>
+  let isRecording=false, mediaRecorder=null, mediaStream=null, ws=null,
+      chunkInterval=null, transcript=[], summaryData=null,
+      audioCtx=null, analyser=null, animFrame=null;
+
+  const $=id=>document.getElementById(id);
+
+  /* ── Waveform Visualizer ── */
+  function startWaveform(stream) {
+    const canvas = $('waveformCanvas');
+    const ctx = canvas.getContext('2d');
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 256;
+    const source = audioCtx.createMediaStreamSource(stream);
+    source.connect(analyser);
+
+    const bufLen = analyser.frequencyBinCount;
+    const data = new Uint8Array(bufLen);
+
+    function resize() {
+      canvas.width = canvas.parentElement.clientWidth;
+      canvas.height = canvas.parentElement.clientHeight;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    const accentR = 99, accentG = 102, accentB = 241;
+
+    function draw() {
+      animFrame = requestAnimationFrame(draw);
+      analyser.getByteFrequencyData(data);
+      const w = canvas.width, h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      const bars = Math.min(bufLen, 80);
+      const barW = (w / bars) - 1.5;
+      const gap = 1.5;
+
+      for (let i = 0; i < bars; i++) {
+        const val = data[i] / 255;
+        const barH = Math.max(2, val * h * 0.9);
+        const x = i * (barW + gap);
+        const y = (h - barH) / 2;
+        const alpha = 0.3 + val * 0.7;
+        ctx.fillStyle = `rgba(${accentR},${accentG},${accentB},${alpha})`;
+        ctx.beginPath();
+        ctx.roundRect(x, y, barW, barH, 2);
+        ctx.fill();
+      }
+    }
+    draw();
+    $('waveformWrap').classList.add('active');
+  }
+
+  function stopWaveform() {
+    if (animFrame) cancelAnimationFrame(animFrame);
+    if (audioCtx) audioCtx.close().catch(()=>{});
+    audioCtx = null; analyser = null; animFrame = null;
+    $('waveformWrap').classList.remove('active');
+  }
+
+  /* ── Recording ── */
+  async function toggleRecording() { isRecording ? stopRecording() : await startRecording(); }
+
+  async function startRecording() {
+    const source = $('audioSource').value;
+    try {
+      if (source === 'tab') {
+        mediaStream = await navigator.mediaDevices.getDisplayMedia({video:true, audio:true});
+        mediaStream.getVideoTracks().forEach(t=>t.stop());
+        if (!mediaStream.getAudioTracks().length) { setStatus('No audio track detected. Check "Share audio".'); return; }
+      } else {
+        mediaStream = await navigator.mediaDevices.getUserMedia({audio:true});
+      }
+    } catch(e) {
+      setStatus(e.name==='NotAllowedError' ? 'Permission denied.' : e.message);
+      return;
+    }
+
+    const proto = location.protocol==='https:'?'wss':'ws';
+    ws = new WebSocket(`${proto}://${location.host}/ws/transcribe`);
+    ws.onopen = () => { setStatus('Recording', true); startMediaRecorder(); startWaveform(mediaStream); };
+    ws.onmessage = e => { const m=JSON.parse(e.data); m.type==='transcript'?addLine(m.timestamp,m.text):addError(m.text); };
+    ws.onclose = () => { if(isRecording){setStatus('Connection lost');stopRecording();} };
+
+    isRecording = true;
+    $('recordBtn').textContent = 'Stop Recording';
+    $('recordBtn').classList.add('recording');
+    $('clearBtn').disabled = false;
+    const empty = $('emptyState'); if(empty) empty.remove();
+  }
+
+  function startMediaRecorder() {
+    const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')?'audio/webm;codecs=opus':'audio/webm';
+    function record() {
+      mediaRecorder = new MediaRecorder(mediaStream, {mimeType:mime});
+      mediaRecorder.ondataavailable = e => {
+        if(e.data.size>0 && ws?.readyState===WebSocket.OPEN) ws.send(e.data);
+      };
+      mediaRecorder.start();
+    }
+    record();
+    chunkInterval = setInterval(()=>{
+      if(mediaRecorder?.state==='recording') { mediaRecorder.stop(); if(isRecording) record(); }
+    }, 5000);
+  }
+
+  function stopRecording() {
+    isRecording = false;
+    if(chunkInterval){clearInterval(chunkInterval);chunkInterval=null;}
+    if(mediaRecorder?.state!=='inactive') mediaRecorder?.stop();
+    mediaStream?.getTracks().forEach(t=>t.stop());
+    ws?.close();
+    mediaRecorder=null; mediaStream=null; ws=null;
+    stopWaveform();
+    $('recordBtn').textContent='Start Recording';
+    $('recordBtn').classList.remove('recording');
+    setStatus('Stopped'); updateBtns();
+  }
+
+  /* ── Transcript ── */
+  function addLine(time, text) {
+    transcript.push({time,text});
+    const el = document.createElement('div'); el.className='transcript-line';
+    el.innerHTML = `<span class="transcript-time">${time}</span><span class="transcript-text">${esc(text)}</span>`;
+    $('transcriptBox').appendChild(el);
+    $('transcriptBox').scrollTop = $('transcriptBox').scrollHeight;
+    updateBtns();
+  }
+
+  function addError(text) {
+    const el=document.createElement('div'); el.className='error-line'; el.textContent=text;
+    $('transcriptBox').appendChild(el); $('transcriptBox').scrollTop=$('transcriptBox').scrollHeight;
+  }
+
+  function clearTranscript() {
+    transcript=[]; summaryData=null;
+    $('transcriptBox').innerHTML='';
+    $('summaryBox').classList.remove('visible');
+    updateBtns(); setStatus('Cleared');
+  }
+
+  function updateBtns() {
+    const h=transcript.length>0;
+    $('summarizeBtn').disabled=!h; $('copyBtn').disabled=!h;
+    $('exportBtn').disabled=!h&&!summaryData;
+  }
+
+  /* ── Summary ── */
+  async function generateSummary() {
+    const text=transcript.map(t=>t.text).join(' ');
+    if(text.length<50){setStatus('Not enough text');return;}
+    $('summarizeBtn').disabled=true;
+    $('summarizeBtn').innerHTML='<span class="spinner"></span>Generating...';
+    setStatus('Generating minutes...');
+    try {
+      const res=await fetch('/api/summarize',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({transcript:text})});
+      const d=await res.json();
+      if(d.error){setStatus('Error: '+d.error);}
+      else{summaryData=d;renderSummary(d);setStatus('Complete');}
+    } catch(e){setStatus('Network error');}
+    $('summarizeBtn').innerHTML='Generate Meeting Minutes';
+    $('summarizeBtn').disabled=false; $('exportBtn').disabled=false;
+  }
+
+  function renderSummary(d) {
+    let h=`<div class="summary-card"><h3>Executive Summary</h3><p>${esc(d.executive_summary)}</p></div>`;
+    h+=`<div class="summary-card"><h3>Key Takeaways</h3><ul>${d.key_takeaways.map(t=>`<li>${esc(t)}</li>`).join('')}</ul></div>`;
+    h+=`<div class="summary-card"><h3>Action Items</h3><ul>${(d.action_items.length?d.action_items:['None identified']).map(a=>`<li>${esc(a)}</li>`).join('')}</ul></div>`;
+    if(d.script?.length) h+=`<div class="summary-card"><h3>Dialogue</h3>${d.script.map(t=>`<div class="script-turn"><span class="script-speaker">${esc(t.speaker)}:</span> ${esc(t.message)}</div>`).join('')}</div>`;
+    $('summaryContent').innerHTML=h;
+    $('summaryBox').classList.add('visible');
+    $('summaryBox').scrollIntoView({behavior:'smooth',block:'start'});
+  }
+
+  /* ── Export ── */
+  function copyTranscript() {
+    navigator.clipboard.writeText(transcript.map(t=>`[${t.time}] ${t.text}`).join('\n')).then(()=>setStatus('Copied to clipboard'));
+  }
+
+  function exportAll() {
+    const now=new Date();
+    let c=`NOTED — MEETING TRANSCRIPT\n${now.toLocaleString()}\n${'─'.repeat(50)}\n\n`;
+    c+=transcript.map(t=>`[${t.time}]  ${t.text}`).join('\n');
+    if(summaryData){
+      c+=`\n\n${'─'.repeat(50)}\nMEETING MINUTES\n${'─'.repeat(50)}\n\n`;
+      c+=`SUMMARY\n${summaryData.executive_summary}\n\n`;
+      c+=`KEY TAKEAWAYS\n${summaryData.key_takeaways.map(t=>'  - '+t).join('\n')}\n\n`;
+      c+=`ACTION ITEMS\n${summaryData.action_items.map(a=>'  - '+a).join('\n')}\n`;
+      if(summaryData.script) c+=`\nDIALOGUE\n${summaryData.script.map(t=>t.speaker+': '+t.message).join('\n')}\n`;
+    }
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob([c],{type:'text/plain'}));
+    a.download=`noted_${now.toISOString().slice(0,10)}.txt`; a.click();
+  }
+
+  /* ── Helpers ── */
+  function setStatus(t, live=false) {
+    const bar=$('statusBar');
+    $('statusText').textContent=t;
+    bar.className = live ? 'status-bar live' : 'status-bar';
+  }
+  function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+</script>
+</body>
+</html>
